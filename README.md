@@ -2,4 +2,4 @@
 Contains the FEniCS tutorials which I used to learn FEniCS  
 
 - Adapted from Hans Petter Langtangen's [fenics-tutorials](https://github.com/hplgit/fenics-tutorial/tree/master/pub/python/vol1) 
-- Officiel tutorials in the dolfin
+- and other tutorials in the dolfin

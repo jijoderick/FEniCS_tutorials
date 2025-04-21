@@ -25,3 +25,23 @@ mesh = generate_mesh(domain, 64)
 plot(mesh)
 #plt.show()
 plt.savefig('mesh.png', dpi=300)
+
+# Define function spaces
+V = VectorFunctionSpace(mesh, 'P', 2)  # Velocity space
+Q = FunctionSpace(mesh, 'P', 1)  # Pressure space
+
+W = FunctionSpace(mesh, MixedElement([V.ufl_element(), Q.ufl_element()]))
+
+# Define boundary conditions
+inflow = 'near(x[0], -Entry_length)'
+outflow = 'near(x[0], Exit_length)'
+walls = 'near(x[1], -height/2.0) || near(x[1], height/2.0)'
+cylinder = 'on_boundary && (pow(x[0], 2) + pow(x[1], 2) < pow(D / 2, 2))'
+
+
+# Define boundary conditions
+inlet_profile = ('4.0*U_in*x[1]*(0.41 - x[1]) / pow(0.41, 2)', '0')
+bcu_inlet = DirichletBC(W.sub(0), Expression(inlet_profile, U_in=U_in, degree=2), inflow)
+bcu_walls = DirichletBC(W.sub(0), Constant((0, 0)), walls)
+bcu_cylinder = DirichletBC(W.sub(0), Constant((0, 0)), cylinder)
+bcp_outlet = DirichletBC(W.sub(1), Constant(0), outlet)

@@ -23,4 +23,5 @@ mesh = generate_mesh(domain, 64)
 
 # show the mesh (Optonall)
 plot(mesh)
-plt.show()
+#plt.show()
+plt.savefig('mesh.png', dpi=300)

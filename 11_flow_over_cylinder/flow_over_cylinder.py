@@ -32,16 +32,38 @@ Q = FunctionSpace(mesh, 'P', 1)  # Pressure space
 
 W = FunctionSpace(mesh, MixedElement([V.ufl_element(), Q.ufl_element()]))
 
-# Define boundary conditions
-inflow = 'near(x[0], -Entry_length)'
-outflow = 'near(x[0], Exit_length)'
-walls = 'near(x[1], -height/2.0) || near(x[1], height/2.0)'
-cylinder = 'on_boundary && (pow(x[0], 2) + pow(x[1], 2) < pow(D / 2, 2))'
 
+'''
+# Define boundary conditions
+inlet = 'near(x[0], -Entry_length)'
+outlet = 'near(x[0], Exit_length)'
+walls = 'near(x[1], -height/2.0) || near(x[1], height/2.0)'
+cylinder = 'on_boundary && (pow(x[0], 2) + pow(x[1], 2) < pow(D / 2, 2))' 
+'''
+# Define boundaries
+class Inlet(SubDomain):
+    def inside(self, x, on_boundary):
+        return near(x[0], -Entry_length) and on_boundary
+class Outlet(SubDomain):
+    def inside(self, x, on_boundary):
+        return near(x[0], Exit_length) and on_boundary
+class Walls(SubDomain):
+    def inside(self, x, on_boundary):
+        return near(x[1], -height/2.0) or near(x[1], height/2.0)
+class Cylinder(SubDomain):
+    def inside(self, x, on_boundary):
+        return (pow(x[0], 2) + pow(x[1], 2) < pow(D / 2, 2)) and on_boundary
+# Create boundary objects
+inlet = Inlet()
+outlet = Outlet()
+walls = Walls()
+cylinder = Cylinder()
 
 # Define boundary conditions
 inlet_profile = ('4.0*U_in*x[1]*(0.41 - x[1]) / pow(0.41, 2)', '0')
-bcu_inlet = DirichletBC(W.sub(0), Expression(inlet_profile, U_in=U_in, degree=2), inflow)
+bcu_inlet = DirichletBC(W.sub(0), Expression(inlet_profile, U_in=U_in, degree=2), inlet)
 bcu_walls = DirichletBC(W.sub(0), Constant((0, 0)), walls)
 bcu_cylinder = DirichletBC(W.sub(0), Constant((0, 0)), cylinder)
 bcp_outlet = DirichletBC(W.sub(1), Constant(0), outlet)
+
+bcs = [bcu_inlet, bcu_walls, bcu_cylinder, bcp_outlet]

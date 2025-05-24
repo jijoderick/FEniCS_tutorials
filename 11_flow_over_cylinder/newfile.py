@@ -52,6 +52,7 @@ u, p = split(w)
 u_n,p_n = split(w_n)
 u_fem, p_fem = split(w_fem)
 
+''''
 class InitialCondition(Expression):
     def eval(self, values, x):
         values[0] = 0.0  # u
@@ -63,17 +64,16 @@ class InitialCondition(Expression):
 '''
 class InitialCondition(Expression):
     def eval(self, values, x):
-
         if near(x[0], 0):
-            values[0] = 4.0 * 1.5 * x[1] * (0.41 - x[1])/ pow(0.41, 2) # u
-            values[1] = 0.0 # v
-            values[2] = 0.0 # p
+            values[0] = 4.0 * 1.5 * x[1] * (0.41 - x[1])/ pow(0.41, 2)  # u
+            values[1] = 0.0  # v
+            values[2] = 0.0  # p
         else:
-            values[0] = 0.0 # u
-            values[1] = 0.0 # v
-            values[2] = 0.0 # p
+            values[0] = 0.0
+            values[1] = 0.0
+            values[2] = 0.0
     def value_shape(self):
-        return (3,)'''
+        return (3,)
     
 initial_condition = InitialCondition(degree=2)
 w_n.interpolate(initial_condition)
@@ -106,6 +106,32 @@ class NS(NonlinearProblem):
         assemble(self.a, tensor=A)
         for bc in self.bcs:
             bc.apply(A)
+    def solve(self, x0):
+        self.iteration = 0
+        while True:
+            b = PETScVector()
+            self.F(b, x0)
+            norm_b = b.norm('l2')
+            # Extract velocity part and pressure from the mixed function x0
+            u0, p0 = x0.split(deepcopy=True)
+            u_max = u0.vector().norm('linf')
+            h = mesh.hmin()
+            CFL = u_max * dt / h
+            print('Newton iteration {}: residual = {:.3e}, CFL = {:.3f}'.format(self.iteration, norm_b, CFL))
+
+            if norm_b < 1e-6 or self.iteration > 60:
+                break
+            A = PETScMatrix()
+            self.J(A, x0)
+            du = Function(W)
+            relaxation_parameter = 0.5
+            solve(A, x0.vector(), b, 'lu')
+            
+            x0.vector().axpy(-relaxation_parameter, du.vector())
+            self.iteration += 1
+        if norm_b >= 1e-6:
+            raise RuntimeError('Newton solver did not converge')
+
 
 problem = NS(a, F, bcs)
 solver = NewtonSolver()
@@ -124,13 +150,15 @@ t = 0.0
 for n in range(num_steps):
     t += dt
     w_n.vector()[:] = w.vector()
-    solver.solve(problem, w.vector())
+    try:
+        problem.solve(w)
+    except RuntimeError as e:
+        print('Newton solver failed at time step {}, time={:.5f}'.format(n, t))
+        break
     u_, p_ = w.split()
-    
     if n % 20 == 0:
         vtkfile_u << (u_, t)
         vtkfile_p << (p_, t)
-
         plot(u_, title="Velocity at t=%.2f" % t)
         plt.pause(0.01)
         plt.clf()
